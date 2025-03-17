@@ -3,7 +3,7 @@ import oracledb
 from sqlalchemy import create_engine, text
 
 # Inicializa o cliente Oracle Instant Client
-oracledb.init_oracle_client(lib_dir=r"C:\instantclient_23_7")
+oracledb.init_oracle_client()
 
 # Credenciais do Banco de Dados
 USERNAME = 'TASY'
