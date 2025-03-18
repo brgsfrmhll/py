@@ -10,7 +10,7 @@ PORT = 1521
 SERVICE = 'dbprod.santacasapc'
 
 # Habilitar o modo thick
-oracledb.init_oracle_client() # Atualize com o caminho correto
+oracledb.init_oracle_client()  # Atualize com o caminho correto
 
 @st.cache_resource
 def get_database_connection():
@@ -54,7 +54,7 @@ def login():
         if authenticated:
             st.session_state.logged_in = True
             st.session_state.user_name = user_name
-            st.session_state.db_engine = engine # Armazena a conexão na sessão
+            st.session_state.db_engine = engine  # Armazena a conexão na sessão
             st.success(f"Login bem-sucedido! Bem-vindo, {user_name}.")
             st.rerun()
         else:
