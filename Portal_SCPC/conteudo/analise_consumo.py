@@ -1,9 +1,10 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
 from sqlalchemy import text
 import matplotlib.dates as mdates
+import locale
 from authentication import login
 
 # Configuração da localidade para português
