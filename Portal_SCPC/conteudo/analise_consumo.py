@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colormaps
 from sqlalchemy import text
 import matplotlib.dates as mdates
-from authentication import login, get_database_connection
+from authentication import login
 
 # Configuração da localidade para português
 try:
@@ -49,7 +49,7 @@ def obter_dados_consumo(engine, cd_material, cd_local=None):
         query += " AND cd_local_estoque = :cd_local"
     query += " GROUP BY TRUNC(dt_movimento_estoque)"
     with engine.connect() as conn:
-        df = pd.DataFrame(conn.execute(text(query), {'cd_material': int(cd_material), 'cd_local': int(cd_local) if cd_local else None}).fetchall(),
+        df = pd.DataFrame(conn.execute(text(query), {'cd_material': cd_material, 'cd_local': cd_local}).fetchall(),
                           columns=['qt_consumo', 'dt_consumo'])
     return df
 
@@ -64,7 +64,7 @@ def obter_dados_estoque_atual(engine, cd_material, cd_local=None):
     if cd_local:
         query += " AND cd_local_estoque = :cd_local"
     with engine.connect() as conn:
-        result = conn.execute(text(query), {'cd_material': int(cd_material), 'cd_local': int(cd_local) if cd_local else None}).fetchone()
+        result = conn.execute(text(query), {'cd_material': cd_material, 'cd_local': cd_local}).fetchone()
     return result[0] if result and result[0] is not None else 0
 
 def plotar_consumo(df, estoque_atual):
