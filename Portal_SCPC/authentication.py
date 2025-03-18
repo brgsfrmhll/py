@@ -8,7 +8,7 @@ import os
 # 🔹 Configuração do Banco de Dados
 USERNAME = 'TASY'
 PASSWORD = 'aloisk'
-HOST = '129.151.37.16'
+HOST = '10.250.250.190'
 PORT = 1521
 SERVICE = 'dbprod.santacasapc'
 
