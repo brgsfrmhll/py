@@ -10,7 +10,7 @@ PORT = 1521
 SERVICE = 'dbprod.santacasapc'
 
 # Habilitar o modo thick
-oracledb.init_oracle_client(lib_dir="/usr/lib/oracle/23.7")  # Atualize com o caminho correto
+oracledb.init_oracle_client() # Atualize com o caminho correto
 
 @st.cache_resource
 def get_database_connection():
