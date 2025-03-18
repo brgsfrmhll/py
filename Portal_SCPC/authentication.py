@@ -9,11 +9,13 @@ HOST = '10.250.250.190'
 PORT = 1521
 SERVICE = 'dbprod.santacasapc'
 
+# Habilitar o modo thick
+oracledb.init_oracle_client(lib_dir="/usr/lib/oracle/23.7")  # Atualize com o caminho correto
+
 @st.cache_resource
 def get_database_connection():
     """Estabelece e retorna uma conexão com o banco de dados Oracle usando SQLAlchemy"""
     try:
-        # Removido o parâmetro 'thick_mode'
         connection_string = f'oracle+oracledb://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/?service_name={SERVICE}'
         engine = create_engine(connection_string)
         return engine
@@ -25,7 +27,6 @@ def verificar_credenciais(engine, username, password):
     """Verifica as credenciais chamando a função verificar_senha_existente no Oracle."""
     if username == "teste" and password == "123":
         return True, "Usuário Teste"
-    
     query = text("""
     SELECT verificar_senha_existente(UPPER(:username), UPPER(:password), 1) FROM DUAL
     """)
@@ -42,21 +43,18 @@ def verificar_credenciais(engine, username, password):
 def login():
     """Interface de login do Streamlit"""
     st.title("Login")
-    
     engine = get_database_connection()
     if not engine:
         st.error("Não foi possível conectar ao banco de dados.")
         return
-    
     username = st.text_input("Usuário")
     password = st.text_input("Senha", type="password")
-    
     if st.button("Entrar"):
         authenticated, user_name = verificar_credenciais(engine, username, password)
         if authenticated:
             st.session_state.logged_in = True
             st.session_state.user_name = user_name
-            st.session_state.db_engine = engine  # Armazena a conexão na sessão
+            st.session_state.db_engine = engine # Armazena a conexão na sessão
             st.success(f"Login bem-sucedido! Bem-vindo, {user_name}.")
             st.rerun()
         else:
