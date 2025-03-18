@@ -9,17 +9,12 @@ HOST = '10.250.250.190'
 PORT = 1521
 SERVICE = 'dbprod.santacasapc'
 
-# Inicializa o cliente Oracle (necessário para o modo "thick")
-try:
-    oracledb.init_oracle_client()
-except Exception as e:
-    st.error(f"Erro ao inicializar o cliente Oracle: {e}")
-
 @st.cache_resource
 def get_database_connection():
-    """Estabelece e retorna uma conexão com o banco de dados Oracle usando SQLAlchemy no modo thick"""
+    """Estabelece e retorna uma conexão com o banco de dados Oracle usando SQLAlchemy"""
     try:
-        connection_string = f'oracle+oracledb://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/?service_name={SERVICE}&thick_mode=True'
+        # Removido o parâmetro 'thick_mode'
+        connection_string = f'oracle+oracledb://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/?service_name={SERVICE}'
         engine = create_engine(connection_string)
         return engine
     except Exception as e:
