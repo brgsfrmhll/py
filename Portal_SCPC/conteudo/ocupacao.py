@@ -3,7 +3,7 @@ from datetime import datetime, date
 import locale
 from sqlalchemy import text
 from PIL import Image
-from authentication import login, get_database_connection
+from authentication import login
 
 # Configuração da localidade para português
 try:
