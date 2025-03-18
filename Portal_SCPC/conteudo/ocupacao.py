@@ -1,7 +1,9 @@
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, date
 import locale
 from sqlalchemy import text
+from PIL import Image
+from authentication import login, get_database_connection
 
 # Configuração da localidade para português
 try:
@@ -78,14 +80,107 @@ def obter_dados_paciente(engine, nr_atendimento):
         result = connection.execute(text(query), {"nr_atendimento": nr_atendimento}).fetchone()
         return result if result else None
 
+def obter_data_prevista_alta(engine, nr_atendimento):
+    query = "SELECT dt_previsto_alta FROM ATEND_PREVISAO_ALTA WHERE ie_situacao='A' AND nr_atendimento=:nr_atendimento"
+    with engine.connect() as connection:
+        result = connection.execute(text(query), {"nr_atendimento": nr_atendimento}).fetchone()
+        return result[0] if result else None
+
+def criar_barra_status(ocupados, total_leitos):
+    cor_barra = '#dc3545' if ocupados == total_leitos else '#28a745' if ocupados == 0 else '#ffc107'
+    return f"""
+    <div style='width: 100%; height: 5px; border-radius: 2px; background-color: {cor_barra}; margin-bottom: 5px;'></div>
+    """
+
+def exibir_informacoes_leito(leito_info, engine, modo_compacto=False):
+    cor_borda = '#28a745' if leito_info['status'] == 'Livre' else '#ffc107' if leito_info['status'] == 'Paciente' else '#dc3545'
+    if modo_compacto:
+        # Modo compacto para exibição quando filtrado por status
+        if leito_info['status'] != 'Livre':
+            paciente = obter_dados_paciente(engine, leito_info["nr_atendimento"])
+            nome_paciente = paciente[1] if paciente else "Sem informações"
+            st.markdown(f"""
+            <div style='border: 1px solid {cor_borda}; border-radius: 4px; margin-bottom: 5px; padding: 5px;'>
+                <strong>Leito {leito_info['leito']}</strong> - {leito_info['status']}<br>
+                <small>{nome_paciente}</small>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style='border: 1px solid {cor_borda}; border-radius: 4px; margin-bottom: 5px; padding: 5px;'>
+                <strong>Leito {leito_info['leito']}</strong> - {leito_info['status']}
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        # Modo detalhado para exibição quando filtrado por setor
+        st.markdown(f"""
+        <div style='border: 1px solid {cor_borda}; border-radius: 4px; margin-bottom: 5px; padding: 5px;'>
+            <strong>Leito {leito_info['leito']} - {leito_info['status']}</strong>
+        """, unsafe_allow_html=True)
+        if leito_info['status'] != 'Livre':
+            dt_alta = obter_data_prevista_alta(engine, leito_info["nr_atendimento"])
+            if dt_alta:
+                hoje = date.today()
+                dt_alta_date = dt_alta.date()
+                dias_para_alta = (dt_alta_date - hoje).days
+                cor_alta = "#dc3545" if dias_para_alta < 0 else "#ffc107" if dias_para_alta == 0 else "#28a745"
+                status_alta = "ALTA ATRASADA" if dias_para_alta < 0 else "ALTA HOJE" if dias_para_alta == 0 else f"ALTA EM {dias_para_alta} DIAS"
+                st.markdown(f"""
+                <div style='padding:5px;border-radius:4px;border: 1px solid {cor_alta};
+                    width:100%;margin-bottom:5px;background-color:{cor_alta}22;'>
+                    <strong style='color:{cor_alta};'>{status_alta}:</strong> {dt_alta_date.strftime('%d/%m/%Y')}
+                </div>
+                """, unsafe_allow_html=True)
+            paciente = obter_dados_paciente(engine, leito_info["nr_atendimento"])
+            if paciente:
+                st.markdown(f"""
+                <p style='margin:0;'><small>
+                <strong>Paciente:</strong> {paciente[1]}<br>
+                <strong>Idade:</strong> {paciente[2]} | <strong>Sexo:</strong> {paciente[3]}<br>
+                <strong>Médico:</strong> {paciente[4]}<br>
+                <strong>Dias Internado:</strong> {paciente[5]}<br>
+                <strong>Diagnóstico:</strong> {paciente[6]}<br>
+                <strong>Convênio:</strong> {paciente[7]}<br>
+                <strong>Categoria:</strong> {paciente[8]}
+                </small></p>
+                """, unsafe_allow_html=True)
+        else:
+            st.write("<small>Leito vazio</small>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+def criar_colunas_dinamicas(num_itens):
+    if num_itens <= 3:
+        return st.columns(num_itens)
+    elif num_itens <= 6:
+        return st.columns(3)
+    else:
+        return st.columns(4)
+
+def criar_barra_ocupacao(ocupados, total_leitos):
+    taxa_ocupacao = (ocupados / total_leitos) * 100 if total_leitos > 0 else 0
+    cor_inicio = '#28a745' # Verde
+    cor_meio = '#ffc107' # Amarelo
+    cor_fim = '#dc3545' # Vermelho
+    return f"""
+    <div style="width:100%; height:20px; background: linear-gradient(to right, {cor_inicio}, {cor_meio}, {cor_fim}); border-radius:10px;">
+        <div style="width:{taxa_ocupacao}%; height:100%; background-color:rgba(0,0,0,0.2); border-radius:10px;"></div>
+    </div>
+    <p style="text-align:center; margin-top:5px;">{taxa_ocupacao:.1f}% Ocupado</p>
+    """
+
 def show():
     st.title("Monitoramento de Leitos")
     
+    # Verifica se o usuário está autenticado
+    if 'logged_in' not in st.session_state or not st.session_state.logged_in:
+        login()
+        return
+    
     # Conectar ao banco de dados
-    engine = conectar_ao_banco()
+    engine = st.session_state.db_engine
     setores = obter_setores(engine)
     quartos, contagem_status = obter_quartos(engine)
-
+    
     # Sidebar
     st.sidebar.header("Filtrar por Setor ou Status")
     setor_escolhido = st.sidebar.selectbox(
@@ -94,8 +189,8 @@ def show():
         format_func=lambda x: setores[x] if x else "Todos os Setores",
         key="setor_selector"
     )
-    st.sidebar.subheader("Filtrar por Status do Leito")
     
+    st.sidebar.subheader("Filtrar por Status do Leito")
     # Usando colunas para organizar os botões de status
     col1, col2 = st.sidebar.columns(2)
     status_filtrado = None
@@ -107,13 +202,13 @@ def show():
                       use_container_width=True):
             status_filtrado = status
             setor_escolhido = None # Reseta a seleção de setor quando um status é selecionado
-
+    
     # Botão para limpar filtros
     if st.sidebar.button("Limpar Filtros", use_container_width=True):
         status_filtrado = None
         setor_escolhido = None
         st.rerun()
-
+    
     # Resumo geral na barra lateral
     st.sidebar.subheader("Resumo Geral")
     total_leitos = sum(contagem_status.values())
@@ -123,7 +218,7 @@ def show():
     <p>Leitos Ocupados: {ocupados}</p>
     """, unsafe_allow_html=True)
     st.sidebar.markdown(criar_barra_ocupacao(ocupados, total_leitos), unsafe_allow_html=True)
-
+    
     # Conteúdo principal
     if setor_escolhido or status_filtrado:
         if setor_escolhido:
@@ -132,18 +227,22 @@ def show():
         else:
             st.header(f"Leitos com status: {status_filtrado}")
             quartos_filtrados = quartos
+        
         for setor, setor_data in quartos_filtrados.items():
             leitos_no_setor = [l for quarto in setor_data["quartos"].values() for l in quarto if not status_filtrado or l['status'] == status_filtrado]
             if leitos_no_setor:
                 if not setor_escolhido:
                     st.subheader(f"{setor_data['nome']}")
+                
                 for quarto, leitos in setor_data["quartos"].items():
                     leitos_filtrados = [l for l in leitos if not status_filtrado or l['status'] == status_filtrado]
                     if not leitos_filtrados:
                         continue
+                    
                     ocupados = sum(1 for l in leitos_filtrados if l['status'] != 'Livre')
                     total_leitos = len(leitos_filtrados)
                     st.markdown(criar_barra_status(ocupados, total_leitos), unsafe_allow_html=True)
+                    
                     if status_filtrado:
                         # Se filtrado por status, exibe informações compactas
                         st.markdown(f"<h5 style='margin-bottom:5px;'>Quarto {quarto} - {ocupados}/{total_leitos} ocupados</h5>", unsafe_allow_html=True)
